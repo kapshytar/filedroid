@@ -209,6 +209,9 @@ class AdbService {
     return _runner.start(adb, fullArgs);
   }
 
+  /// Returns the resolved adb binary path, or null if not found.
+  Future<String?> resolvedAdbPath() => _resolveAdbPath();
+
   Future<bool> isAdbAvailable() async {
     try {
       final path = await _resolveAdbPath();
