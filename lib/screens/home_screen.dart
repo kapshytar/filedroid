@@ -234,57 +234,22 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
-class _GlowOrb extends StatefulWidget {
+class _GlowOrb extends StatelessWidget {
   final Color color;
   final double size;
 
   const _GlowOrb({required this.color, required this.size});
 
   @override
-  State<_GlowOrb> createState() => _GlowOrbState();
-}
-
-class _GlowOrbState extends State<_GlowOrb>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      duration: const Duration(seconds: 8),
-      vsync: this,
-    )..repeat(reverse: true);
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _controller,
-      builder: (context, child) {
-        return Transform.translate(
-          offset: Offset(
-            10 * (_controller.value - 0.5),
-            8 * (_controller.value - 0.5),
-          ),
-          child: child,
-        );
-      },
-      child: ImageFiltered(
-        imageFilter: ImageFilter.blur(sigmaX: 80, sigmaY: 80),
-        child: Container(
-          width: widget.size,
-          height: widget.size,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: widget.color.withValues(alpha: 0.18),
-          ),
+    return ImageFiltered(
+      imageFilter: ImageFilter.blur(sigmaX: 80, sigmaY: 80),
+      child: Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: color.withValues(alpha: 0.18),
         ),
       ),
     );
