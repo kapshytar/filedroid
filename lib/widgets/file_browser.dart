@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:desktop_drop/desktop_drop.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../models/android_file.dart';
 import '../providers/device_provider.dart';
 import '../providers/file_browser_provider.dart';
 import '../providers/transfer_provider.dart';
+import '../services/stream_server.dart';
 import '../utils/theme.dart';
 
 class FileBrowser extends StatefulWidget {
@@ -397,6 +399,13 @@ class _FileBrowserState extends State<FileBrowser> {
       color: FileDroidTheme.bgElevated,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       items: [
+        if (!file.isDirectory)
+          const PopupMenuItem(
+            value: 'stream',
+            child: Text('Stream',
+                style: TextStyle(color: FileDroidTheme.accentCyan)),
+          ),
+        if (!file.isDirectory) const PopupMenuDivider(),
         const PopupMenuItem(
           value: 'rename',
           child: Text('Rename',
@@ -441,13 +450,32 @@ class _FileBrowserState extends State<FileBrowser> {
 
   void _handleMenuAction(String action, AndroidFile? file) {
     final browser = context.read<FileBrowserProvider>();
-    if (action == 'rename' && file != null) {
+    if (action == 'stream' && file != null && !file.isDirectory) {
+      _streamFile(file);
+    } else if (action == 'rename' && file != null) {
       _showRenameDialog(context, file, browser);
     } else if (action == 'delete' && file != null) {
       _showDeleteDialog(context, [file], browser);
     } else if (action == 'new_folder') {
       _showNewFolderDialog(context, browser);
     }
+  }
+
+  Future<void> _streamFile(AndroidFile file) async {
+    final deviceProv = context.read<DeviceProvider>();
+    final deviceId = deviceProv.activeDevice?.id;
+    if (deviceId == null) return;
+
+    final adbPath = await deviceProv.resolvedAdbPath();
+    if (!mounted || adbPath == null) return;
+
+    final uri = await StreamServer.start(
+      adbPath: adbPath,
+      deviceId: deviceId,
+      remotePath: file.path,
+    );
+    if (!mounted) return;
+    await launchUrl(uri);
   }
 
   void _showNewFolderDialog(BuildContext context, FileBrowserProvider browser) {

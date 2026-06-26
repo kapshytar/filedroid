@@ -128,6 +128,9 @@ class DeviceProvider extends ChangeNotifier {
     await initialize();
   }
 
+  /// Returns the resolved adb binary path, or null if not found.
+  Future<String?> resolvedAdbPath() => _adb.resolvedAdbPath();
+
   /// Set a user-chosen adb path, then re-initialize.
   Future<bool> setCustomAdbPath(String path) async {
     final ok = await _adb.setCustomAdbPath(path);
