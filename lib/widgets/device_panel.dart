@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/device_provider.dart';
+import '../models/android_device.dart';
 import '../providers/file_browser_provider.dart';
 import '../services/adb_service.dart';
 import '../utils/theme.dart';
@@ -129,7 +130,10 @@ class DevicePanel extends StatelessWidget {
       detail = device.id;
     }
 
-    return Container(
+    final onlineDevices = prov.devices.where((d) => d.isOnline).toList();
+    final canSwitch = onlineDevices.length > 1;
+
+    final card = Container(
       padding: const EdgeInsets.all(14),
       decoration: hasDevice && device.isOnline
           ? FileDroidTheme.deviceCardDecoration()
@@ -189,8 +193,44 @@ class DevicePanel extends StatelessWidget {
               ],
             ),
           ),
+          if (canSwitch)
+            const Padding(
+              padding: EdgeInsets.only(left: 4, top: 2),
+              child: Icon(
+                Icons.unfold_more,
+                size: 16,
+                color: FileDroidTheme.textTertiary,
+              ),
+            ),
         ],
       ),
+    );
+
+    if (!canSwitch) return card;
+
+    return PopupMenuButton<AndroidDevice>(
+      tooltip: 'Switch device',
+      offset: const Offset(0, 56),
+      onSelected: prov.selectDevice,
+      itemBuilder: (context) => [
+        for (final d in onlineDevices)
+          PopupMenuItem<AndroidDevice>(
+            value: d,
+            child: Row(
+              children: [
+                Icon(
+                  d.id.contains(':') ? Icons.wifi : Icons.usb,
+                  size: 16,
+                  color: FileDroidTheme.textSecondary,
+                ),
+                const SizedBox(width: 8),
+                Expanded(child: Text(d.displayName)),
+                if (d.id == device?.id) const Icon(Icons.check, size: 16),
+              ],
+            ),
+          ),
+      ],
+      child: card,
     );
   }
 
