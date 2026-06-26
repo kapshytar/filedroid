@@ -630,6 +630,45 @@ void main() {
       });
     });
 
+    group('path quoting (spaces in names)', () {
+      List<String>? capturedArgs;
+
+      setUp(() {
+        capturedArgs = null;
+        when(() => mockRunner.run('/usr/local/bin/adb', any(),
+                stdoutEncoding: any(named: 'stdoutEncoding'),
+                stderrEncoding: any(named: 'stderrEncoding')))
+            .thenAnswer((invocation) async {
+          capturedArgs = invocation.positionalArguments[1] as List<String>;
+          return fakeResult(exitCode: 0, stdout: '');
+        });
+      });
+
+      test('listFiles quotes a directory containing a space', () async {
+        await adb.listFiles('/sdcard/My Folder');
+        // `adb shell` re-parses the joined arguments, so the remote path must
+        // be quoted or the device shell splits it on the space.
+        expect(capturedArgs, isNotNull);
+        expect(capturedArgs!.last, "'/sdcard/My Folder/'");
+      });
+
+      test('createDirectory quotes a path with spaces', () async {
+        await adb.createDirectory('/sdcard/New Dir');
+        expect(capturedArgs!.last, "'/sdcard/New Dir'");
+      });
+
+      test('delete quotes a path with spaces', () async {
+        await adb.delete('/sdcard/a file.txt');
+        expect(capturedArgs!.last, "'/sdcard/a file.txt'");
+      });
+
+      test('rename quotes both paths with spaces', () async {
+        await adb.rename('/sdcard/old name', '/sdcard/new name');
+        expect(capturedArgs, contains("'/sdcard/old name'"));
+        expect(capturedArgs, contains("'/sdcard/new name'"));
+      });
+    });
+
     group('createDirectory', () {
       test('returns true on success', () async {
         when(() => mockRunner.run('/usr/local/bin/adb', any(),

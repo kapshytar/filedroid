@@ -173,6 +173,14 @@ class AdbService {
     return null;
   }
 
+  /// Quote a remote path for execution inside the device shell.
+  ///
+  /// `adb shell` joins its arguments back into a single string and runs them
+  /// through the device's shell, so a path containing spaces (or other shell
+  /// metacharacters) is split into multiple arguments unless it is quoted.
+  static String _shellQuote(String path) =>
+      "'" + path.replaceAll("'", "'\\''") + "'";
+
   Future<ProcessResult> _run(List<String> args,
       {int timeoutSeconds = 30}) async {
     final adb = await _resolveAdbPath();
@@ -293,7 +301,7 @@ class AdbService {
   Future<List<AndroidFile>> listFiles(String dirPath) async {
     // Append trailing '/' to follow symlinks (e.g. /sdcard -> /storage/emulated/0)
     final listPath = dirPath == '/' ? '/' : '$dirPath/';
-    final result = await _run(['shell', 'ls', '-la', listPath]);
+    final result = await _run(['shell', 'ls', '-la', _shellQuote(listPath)]);
 
     if (result.exitCode != 0) {
       final stderr = (result.stderr as String).toLowerCase();
@@ -416,7 +424,7 @@ class AdbService {
   ) async {
     int totalSize = 0;
     try {
-      final statResult = await _run(['shell', 'stat', '-c', '%s', remotePath]);
+      final statResult = await _run(['shell', 'stat', '-c', '%s', _shellQuote(remotePath)]);
       if (statResult.exitCode == 0) {
         totalSize = int.tryParse((statResult.stdout as String).trim()) ?? 0;
       }
@@ -518,7 +526,7 @@ class AdbService {
           if (adb == null) return;
           final args = <String>[];
           if (savedDevice != null) args.addAll(['-s', savedDevice]);
-          args.addAll(['shell', 'stat', '-c', '%s', remotePath]);
+          args.addAll(['shell', 'stat', '-c', '%s', _shellQuote(remotePath)]);
           final result = await _runner.run(adb, args,
               stdoutEncoding: utf8, stderrEncoding: utf8)
               .timeout(const Duration(seconds: 2));
@@ -568,31 +576,31 @@ class AdbService {
   }
 
   Future<bool> createDirectory(String path) async {
-    final result = await _run(['shell', 'mkdir', '-p', path]);
+    final result = await _run(['shell', 'mkdir', '-p', _shellQuote(path)]);
     return result.exitCode == 0;
   }
 
   Future<bool> delete(String path, {bool recursive = false}) async {
     final args = recursive
-        ? ['shell', 'rm', '-rf', path]
-        : ['shell', 'rm', path];
+        ? ['shell', 'rm', '-rf', _shellQuote(path)]
+        : ['shell', 'rm', _shellQuote(path)];
     final result = await _run(args);
     return result.exitCode == 0;
   }
 
   Future<bool> rename(String oldPath, String newPath) async {
-    final result = await _run(['shell', 'mv', oldPath, newPath]);
+    final result = await _run(['shell', 'mv', _shellQuote(oldPath), _shellQuote(newPath)]);
     return result.exitCode == 0;
   }
 
   Future<bool> exists(String path) async {
-    final result = await _run(['shell', 'test', '-e', path]);
+    final result = await _run(['shell', 'test', '-e', _shellQuote(path)]);
     return result.exitCode == 0;
   }
 
   Future<int> getRemoteFileSize(String remotePath) async {
     try {
-      final result = await _run(['shell', 'stat', '-c', '%s', remotePath]);
+      final result = await _run(['shell', 'stat', '-c', '%s', _shellQuote(remotePath)]);
       if (result.exitCode == 0) {
         return int.tryParse((result.stdout as String).trim()) ?? 0;
       }
