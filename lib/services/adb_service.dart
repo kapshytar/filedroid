@@ -179,7 +179,7 @@ class AdbService {
   /// through the device's shell, so a path containing spaces (or other shell
   /// metacharacters) is split into multiple arguments unless it is quoted.
   static String _shellQuote(String path) =>
-      "'" + path.replaceAll("'", "'\\''") + "'";
+      "'${path.replaceAll("'", "'\\''")}'";
 
   Future<ProcessResult> _run(List<String> args,
       {int timeoutSeconds = 30}) async {
