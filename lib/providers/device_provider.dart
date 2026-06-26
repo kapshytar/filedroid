@@ -75,10 +75,17 @@ class DeviceProvider extends ChangeNotifier {
 
       _devices = newDevices;
 
-      // Auto-select if exactly 1 online device
+      // Auto-select a device when none is active. The same phone can appear
+      // twice when connected over both USB and Wi-Fi, so prefer a USB
+      // connection (serial id, no ':') over a wireless one (host:port)
+      // instead of giving up whenever more than one device is present.
       final onlineDevices = _devices.where((d) => d.isOnline).toList();
-      if (onlineDevices.length == 1 && _activeDevice == null) {
-        await selectDevice(onlineDevices.first);
+      if (_activeDevice == null && onlineDevices.isNotEmpty) {
+        final preferred = onlineDevices.firstWhere(
+          (d) => !d.id.contains(':'),
+          orElse: () => onlineDevices.first,
+        );
+        await selectDevice(preferred);
         return;
       }
 

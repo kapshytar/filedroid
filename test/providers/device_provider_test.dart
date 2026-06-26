@@ -151,6 +151,25 @@ void main() {
         expect(provider.hasDevice, isTrue);
       });
 
+      test('prefers USB over Wi-Fi when the same phone is connected twice', () async {
+        // A phone connected over both USB and Wi-Fi appears as two adb
+        // devices. Previously no device was auto-selected when more than one
+        // was present, so the app showed "No Device". It should now pick the
+        // USB connection (serial id, without ':').
+        const wifi = AndroidDevice(id: '192.168.1.5:5555', model: 'SM-G975F', status: 'device');
+        const usb = AndroidDevice(id: 'R58M40F6ZWD', model: 'SM-G975F', status: 'device');
+        when(() => mockAdb.listDevices()).thenAnswer((_) async => [wifi, usb]);
+        when(() => mockAdb.setActiveDevice(any())).thenReturn(null);
+        when(() => mockAdb.getStorageInfo()).thenAnswer(
+          (_) async => const StorageInfo(totalBytes: 1000, usedBytes: 500, availableBytes: 500),
+        );
+
+        await provider.initialize();
+
+        expect(provider.hasDevice, isTrue);
+        expect(provider.activeDevice!.id, 'R58M40F6ZWD');
+      });
+
       test('clears active device when it disconnects', () async {
         const device = AndroidDevice(id: 'abc', model: 'Pixel 6', status: 'device');
         when(() => mockAdb.setActiveDevice(any())).thenReturn(null);
