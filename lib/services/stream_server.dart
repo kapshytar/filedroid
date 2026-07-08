@@ -19,7 +19,7 @@ class StreamServer {
       "'${path.replaceAll("'", "'\\''")}'";
 
   /// Start (or reuse) an HTTP server that streams [remotePath] from [deviceId]
-  /// via [adbPath].  Returns the base Uri (e.g. http://127.0.0.1:54321/).
+  /// via [adbPath].  Returns the Uri (e.g. http://127.0.0.1:54321/video.mp4).
   static Future<Uri> start({
     required String adbPath,
     required String deviceId,
@@ -45,11 +45,15 @@ class StreamServer {
 
     final server =
         await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    // The path carries the real filename/extension purely so players that
+    // sniff format from the URL (QuickTime Player) can recognize it — the
+    // handler below serves the file for any path, so this is not routed on.
+    final basename = remotePath.split('/').last;
     final uri = Uri(
       scheme: 'http',
       host: '127.0.0.1',
       port: server.port,
-      path: '/',
+      path: '/${Uri.encodeComponent(basename)}',
     );
     _registry[key] = uri;
 
