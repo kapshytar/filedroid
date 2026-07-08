@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:desktop_drop/desktop_drop.dart';
@@ -475,6 +477,20 @@ class _FileBrowserState extends State<FileBrowser> {
       remotePath: file.path,
     );
     if (!mounted) return;
+    await _openInMediaPlayer(uri);
+  }
+
+  /// Opens [uri] directly in a media player app, bypassing the OS default
+  /// handler for the `http` scheme (which is always the web browser on
+  /// macOS, regardless of the content type being streamed).
+  static const _preferredPlayers = ['IINA', 'VLC', 'QuickTime Player'];
+
+  Future<void> _openInMediaPlayer(Uri uri) async {
+    for (final app in _preferredPlayers) {
+      final result = await Process.run('open', ['-a', app, uri.toString()]);
+      if (result.exitCode == 0) return;
+    }
+    // No known media player installed; fall back to the browser.
     await launchUrl(uri);
   }
 
