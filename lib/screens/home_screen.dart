@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../providers/device_provider.dart';
 import '../providers/file_browser_provider.dart';
 import '../providers/transfer_provider.dart';
+import '../services/mount_service.dart';
 import '../utils/theme.dart';
 import '../widgets/adb_setup_screen.dart';
 import '../widgets/browser_toolbar.dart';
@@ -23,6 +24,8 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _showTransfers = true;
   bool _hasLoadedBrowser = false;
   DeviceProvider? _deviceProv;
+  final _mountService = MountService();
+  bool _isMounting = false;
 
   @override
   void initState() {
@@ -49,6 +52,65 @@ class _HomeScreenState extends State<HomeScreen> {
   void dispose() {
     _deviceProv?.removeListener(_onDeviceChanged);
     super.dispose();
+  }
+
+  Future<void> _runMount(Future<MountResult> Function() action) async {
+    if (_isMounting) return;
+    setState(() => _isMounting = true);
+    try {
+      final result = await action();
+      if (!mounted) return;
+      _showMountResult(result);
+    } finally {
+      if (mounted) setState(() => _isMounting = false);
+    }
+  }
+
+  void _showMountResult(MountResult result) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: FileDroidTheme.bgElevated,
+        shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        title: Row(
+          children: [
+            Icon(
+              result.success ? Icons.check_circle_outline : Icons.error_outline,
+              color: result.success
+                  ? FileDroidTheme.greenSuccess
+                  : FileDroidTheme.roseError,
+              size: 20,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              result.success ? 'Готово' : 'Ошибка',
+              style: TextStyle(
+                color: result.success
+                    ? FileDroidTheme.greenSuccess
+                    : FileDroidTheme.roseError,
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+        content: Text(
+          result.output,
+          style: const TextStyle(
+            color: FileDroidTheme.textSecondary,
+            fontSize: 13,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('OK',
+                style: TextStyle(color: FileDroidTheme.accentCyan)),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -136,6 +198,43 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
               ),
+            ),
+            const SizedBox(width: 8),
+            // Mount buttons separator
+            Container(
+              width: 1,
+              height: 20,
+              color: FileDroidTheme.borderLight,
+            ),
+            const SizedBox(width: 8),
+            // Mount Phone button
+            _TitleBarButton(
+              label: 'Mount',
+              tooltip: 'Монтировать телефон (~/Phone)',
+              icon: Icons.usb,
+              color: FileDroidTheme.accentCyan,
+              loading: _isMounting,
+              onTap: () => _runMount(_mountService.mountPhone),
+            ),
+            const SizedBox(width: 4),
+            // Mount System button
+            _TitleBarButton(
+              label: 'Sys',
+              tooltip: 'Монтировать системный раздел (~/Phone-System)',
+              icon: Icons.storage,
+              color: FileDroidTheme.accentTeal,
+              loading: _isMounting,
+              onTap: () => _runMount(_mountService.mountSystem),
+            ),
+            const SizedBox(width: 4),
+            // Unmount button
+            _TitleBarButton(
+              label: 'Unmount',
+              tooltip: 'Размонтировать телефон',
+              icon: Icons.eject,
+              color: FileDroidTheme.roseError,
+              loading: _isMounting,
+              onTap: () => _runMount(_mountService.unmountPhone),
             ),
           ],
         ),
@@ -231,6 +330,90 @@ class _HomeScreenState extends State<HomeScreen> {
         child: _GlowOrb(color: FileDroidTheme.purple, size: 280),
       ),
     ];
+  }
+}
+
+class _TitleBarButton extends StatefulWidget {
+  final String label;
+  final String tooltip;
+  final IconData icon;
+  final Color color;
+  final bool loading;
+  final VoidCallback onTap;
+
+  const _TitleBarButton({
+    required this.label,
+    required this.tooltip,
+    required this.icon,
+    required this.color,
+    required this.loading,
+    required this.onTap,
+  });
+
+  @override
+  State<_TitleBarButton> createState() => _TitleBarButtonState();
+}
+
+class _TitleBarButtonState extends State<_TitleBarButton> {
+  bool _hovering = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final enabled = !widget.loading;
+    return Tooltip(
+      message: widget.tooltip,
+      waitDuration: const Duration(milliseconds: 500),
+      child: MouseRegion(
+        cursor:
+            enabled ? SystemMouseCursors.click : SystemMouseCursors.basic,
+        onEnter: (_) => setState(() => _hovering = true),
+        onExit: (_) => setState(() => _hovering = false),
+        child: GestureDetector(
+          onTap: enabled ? widget.onTap : null,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
+            padding:
+                const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+            decoration: BoxDecoration(
+              color: _hovering && enabled
+                  ? widget.color.withValues(alpha: 0.18)
+                  : FileDroidTheme.bgElevated,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: enabled
+                    ? widget.color.withValues(alpha: 0.45)
+                    : FileDroidTheme.borderSubtle,
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (widget.loading)
+                  SizedBox(
+                    width: 12,
+                    height: 12,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 1.5,
+                      color: widget.color,
+                    ),
+                  )
+                else
+                  Icon(widget.icon, size: 13, color: enabled ? widget.color : FileDroidTheme.textTertiary),
+                const SizedBox(width: 5),
+                Text(
+                  widget.label,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: enabled ? widget.color : FileDroidTheme.textTertiary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
 
